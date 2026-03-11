@@ -4,7 +4,7 @@ on:
   push:
     tags:
       - 'v*'
-
+  workflow_dispatch:
 jobs:
   build:
     runs-on: windows-2019 # 建议使用 windows-2019，对老项目兼容性更好
