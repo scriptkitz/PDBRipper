@@ -1,0 +1,54 @@
+name: Build PDBRipper
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-2019 # 建议使用 windows-2019，对老项目兼容性更好
+    env:
+      QT_VERSION: "5.15.2" # 尝试使用 5.15.2，因为 Qt 5.6 太老可能无法安装
+      QT_ARCH: "win64_msvc2019_64"
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: ${{ env.QT_VERSION }}
+        arch: ${{ env.QT_ARCH }}
+
+    - name: Build
+      shell: cmd
+      run: |
+        # 1. 生成项目文件 (根据实际情况可能是 qmake.exe)
+        qmake
+        # 2. 编译
+        nmake release
+        
+    - name: Prepare Release folder
+      shell: cmd
+      run: |
+        # 创建一个输出目录，把编译出来的 exe 丢进去
+        mkdir build_output
+        copy release\pdbripper.exe build_output\
+        
+        # 3. 使用 windeployqt 自动拷贝 Qt 运行库 (这步是关键)
+        windeployqt build_output\pdbripper.exe
+
+    - name: Upload Release
+      uses: softprops/action-gh-release@v1
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: build_output/*
