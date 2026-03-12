@@ -80,8 +80,15 @@ jobs:
         windeployqt ${{ env.BUILD_DIR }}\pdbripper.exe
         windeployqt ${{ env.BUILD_DIR }}\pdbripperc.exe
 
+    - name: Compress Release Folder
+      shell: powershell
+      run: |
+        Compress-Archive -Path "build_output/*" -DestinationPath "PDBRipper_Release.zip"
+
     - name: Upload Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: ${{ env.BUILD_DIR }}/*
+        files: PDBRipper_Release.zip # 这里指向你刚才压缩出来的那个 zip 文件
+        draft: true
+        prerelease: false
