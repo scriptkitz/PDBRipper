@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 jobs:
   build:
-    runs-on: windows-2019 # 建议使用 windows-2019，对老项目兼容性更好
+    runs-on: windows-2022 # 建议使用 windows-2019，对老项目兼容性更好
     env:
       QT_VERSION: "5.15.2" # 尝试使用 5.15.2，因为 Qt 5.6 太老可能无法安装
       QT_ARCH: "win64_msvc2019_64"
