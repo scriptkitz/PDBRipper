@@ -5,12 +5,14 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+
 jobs:
   build:
-    runs-on: windows-2022 # 建议使用 windows-2019，对老项目兼容性更好
+    runs-on: windows-2022
     env:
-      QT_VERSION: "5.15.2" # 尝试使用 5.15.2，因为 Qt 5.6 太老可能无法安装
+      QT_VERSION: "5.15.2"
       QT_ARCH: "win64_msvc2019_64"
+      BUILD_DIR: "build_output"
 
     steps:
     - name: Checkout code
@@ -28,27 +30,58 @@ jobs:
       with:
         version: ${{ env.QT_VERSION }}
         arch: ${{ env.QT_ARCH }}
+        install-deps: true
 
-    - name: Build
+    - name: Build Project
       shell: cmd
       run: |
-        # 1. 生成项目文件 (根据实际情况可能是 qmake.exe)
+        rem 编译 GUI 项目
         qmake
-        # 2. 编译
         nmake release
         
-    - name: Prepare Release folder
+        rem 编译 Console 项目 (假设在 console_source 目录下)
+        if exist console_source (
+            cd console_source
+            qmake
+            nmake release
+            cd ..
+        )
+
+    - name: Debug - List Build Files
       shell: cmd
       run: |
-        # 创建一个输出目录，把编译出来的 exe 丢进去
-        mkdir build_output
-        copy release\pdbripper.exe build_output\
+        echo "--- 搜索所有 exe 文件，确认生成位置 ---"
+        dir /s /b *.exe
+        echo "--- 打印 build 目录结构 ---"
+        if exist build (
+            tree /f build
+        ) else (
+            echo "错误: build 目录不存在！编译可能失败。"
+        )
+
+    - name: Prepare Files
+      shell: cmd
+      run: |
+        mkdir ${{ env.BUILD_DIR }}
         
-        # 3. 使用 windeployqt 自动拷贝 Qt 运行库 (这步是关键)
-        windeployqt build_output\pdbripper.exe
+        rem 这里的路径你需要根据 Debug 步骤的输出进行调整
+        rem 如果 Debug 显示文件在 build\release，就用 build\release\xxx
+        if exist build\release\pdbripper.exe copy build\release\pdbripper.exe ${{ env.BUILD_DIR }}\
+        if exist build\release\pdbripperc.exe copy build\release\pdbripperc.exe ${{ env.BUILD_DIR }}\
+        
+        rem 拷贝资源
+        if exist XStyles\qss xcopy XStyles\qss ${{ env.BUILD_DIR }}\qss /E /I /Y
+        if exist signatures\crypto.db xcopy signatures\crypto.db ${{ env.BUILD_DIR }}\signatures\ /Y
+        if exist files\msdia140.dll copy files\msdia140.dll ${{ env.BUILD_DIR }}\
+
+    - name: Deploy Qt Libraries
+      shell: cmd
+      run: |
+        windeployqt ${{ env.BUILD_DIR }}\pdbripper.exe
+        windeployqt ${{ env.BUILD_DIR }}\pdbripperc.exe
 
     - name: Upload Release
       uses: softprops/action-gh-release@v1
       if: startsWith(github.ref, 'refs/tags/')
       with:
-        files: build_output/*
+        files: ${{ env.BUILD_DIR }}/*
